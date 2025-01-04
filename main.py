@@ -5,6 +5,8 @@
 import os
 import clr #pythonnet
 import System
+import sys
+import time
 
 def configure_runtime():
     setup = System.AppDomainSetup()
@@ -68,4 +70,15 @@ def get_cpu_temp(data):
 
 if __name__ == "__main__":
     HardwareHandle = initialize()
-    fetch_stats(HardwareHandle)
+    try:
+        if '-t' in sys.argv:
+            # Runs the fetch_stats function indefintely
+            while True:
+                fetch_stats(HardwareHandle)
+                time.sleep(5)
+        else:
+            # Only prints out the results once
+            fetch_stats(HardwareHandle)
+
+    except KeyboardInterrupt: 
+        print("\nProgram stopped by user.")
