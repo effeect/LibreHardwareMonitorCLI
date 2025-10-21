@@ -1,1 +1,6 @@
 **/__pycache__/
+build/
+dist/
+**/Aga.Controls.dll
+**/LibreHardwareMonitorLib.dll
+**/HidSharp.dll
