@@ -1,0 +1,51 @@
+name: Build LibreMonitor Executable
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    # Gets repo
+    - name: Repo Checkout
+      uses: actions/checkout@v5.0.0
+    
+    - name: Python Setup
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install Requirements
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        pip install pythonnet
+
+    - name: Get Latest .DLL files
+      id: get_release
+      run: |
+        $response = Invoke-RestMethod -Uri "https://api.github.com/repos/LibreHardwareMonitor/LibreHardwareMonitor/releases/latest"
+        $asset = $response.assets | Where-Object { $_.name -like "*LibreHardwareMonitor*.zip" }
+        "zip_url=$($asset.browser_download_url)" | Out-File -FilePath $env:GITHUB_ENV -Append
+    - name: 📥 Download and extract DLLs
+      run: |
+        curl -L -o LibreHardwareMonitor.zip $env:zip_url
+        Expand-Archive -Path LibreHardwareMonitor.zip -DestinationPath libre_cli
+        
+    - name: 🛠️ Build with PyInstaller
+      run: |
+        python -m PyInstaller --onefile --name "LibreMonitor" `
+          .\libre_cli\libre_hardware_monitor_reporter.py `
+          --add-binary ".\libre_cli\LibreHardwareMonitorLib.dll;." `
+          --add-binary ".\libre_cli\Aga.Controls.dll;." `
+          --add-binary ".\libre_cli\HidSharp.dll;."
+    - name: 🏷️ Set version tag
+      run: |
+        echo "VERSION=$(git rev-parse --short HEAD)" >> $env:GITHUB_ENV
+    - name: 📤 Upload artifact
+      uses: actions/upload-artifact@v4.6.2
+      with:
+        name: LibreMonitor
+        path: dist/LibreMonitor.exe
