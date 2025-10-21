@@ -45,7 +45,7 @@ jobs:
       run: |
         echo "VERSION=$(git rev-parse --short HEAD)" >> $env:GITHUB_ENV
     - name: 📤 Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4.6.2
       with:
         name: LibreMonitor
         path: dist/LibreMonitor.exe
