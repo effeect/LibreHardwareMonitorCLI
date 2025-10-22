@@ -9,9 +9,33 @@ import glob
 
 class LibreHardwareMonitorReporter:
     """
-    Class to report hardware statistics using LibreHardwareMonitor
+    A class to report hardware statistics using LibreHardwareMonitor.
+
+    Attributes:
+        cpu_enabled (bool): Whether to include CPU statistics.
+        gpu_enabled (bool): Whether to include GPU statistics.
+        memory_enabled (bool): Whether to include memory statistics.
+        motherboard_enabled (bool): Whether to include motherboard statistics.
+        controller_enabled (bool): Whether to include controller statistics.
+        network_enabled (bool): Whether to include network statistics.
+        storage_enabled (bool): Whether to include storage statistics.
+        results (list): Stores the fetched hardware statistics.
+        sensor_data (list): Stores the parsed sensor data.
+        handler: The LibreHardwareMonitor handler object.
     """
     def __init__(self, cpu=True, gpu=True, memory=True, motherboard=True, controller=True, network=True, storage=True):
+        """
+        Initializes the LibreHardwareMonitorReporter class.
+
+        Args:
+            cpu (bool): Enable CPU statistics. Default is True.
+            gpu (bool): Enable GPU statistics. Default is True.
+            memory (bool): Enable memory statistics. Default is True.
+            motherboard (bool): Enable motherboard statistics. Default is True.
+            controller (bool): Enable controller statistics. Default is True.
+            network (bool): Enable network statistics. Default is True.
+            storage (bool): Enable storage statistics. Default is True.
+        """
         self.NoneType = type(None)
         # Intializing Arrays to store the info
         self.results = []
@@ -29,6 +53,15 @@ class LibreHardwareMonitorReporter:
         self.handler = self.initialize_handler()
     
     def initialize_handler(self):
+        """
+        Initializes the LibreHardwareMonitor handler.
+
+        This method locates the LibreHardwareMonitor DLL, loads it, and sets up the hardware
+        components to be monitored.
+
+        Returns:
+            Hardware.Computer: The initialized LibreHardwareMonitor handler.
+        """
         # In order to make this program easily buildable, we will use winget to setup LibreHardwareMonitor
         # The DLL will be located in the WinGet packages folder so we will grab it
         def find_librehardwaremonitor_dll():
@@ -69,7 +102,16 @@ class LibreHardwareMonitorReporter:
         return self.handle
     
     def fetch_stats(self,handle,results):
-        """Fetches all the Hardware and stats"""
+        """
+        Fetches hardware statistics from the LibreHardwareMonitor handler.
+
+        Args:
+            handle: The LibreHardwareMonitor handler.
+            results (list): A list to store the fetched statistics.
+
+        Returns:
+            list: The updated results list containing hardware statistics.
+        """
         for i in handle.Hardware:
             i.Update()
             for sensor in i.Sensors:
@@ -81,7 +123,13 @@ class LibreHardwareMonitorReporter:
         return results
 
     def parse_sensor(self,sensor,results):
-        """Gets all the possible results"""
+        """
+        Parses a sensor and appends its data to the results list.
+
+        Args:
+            sensor: The sensor object to parse.
+            results (list): The list to store parsed sensor data.
+        """
         if sensor.Value is not None:
             value = (f"{sensor.Hardware.Name}",
                     f"{sensor.Name}",
@@ -90,6 +138,12 @@ class LibreHardwareMonitorReporter:
 
             
     def get_sensor_data(self):
+        """
+        Fetches and returns the latest sensor data.
+
+        Returns:
+            list: A list of tuples containing sensor data.
+        """
         self.results = [] # Clear previous results
         self.sensor_data = self.fetch_stats(self.handler,self.results)
         return self.sensor_data
