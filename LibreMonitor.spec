@@ -2,9 +2,9 @@
 
 
 a = Analysis(
-    ['libre_cli\\libre_hardware_monitor_reporter.py'],
+    ['main.py'],
     pathex=[],
-    binaries=[('.\\libre_cli\\LibreHardwareMonitorLib.dll', '.'), ('.\\libre_cli\\Aga.Controls.dll', '.'), ('.\\libre_cli\\HidSharp.dll', '.')],
+    binaries=[('.\\libre_cli\\LibreHardwareMonitorLib.dll', 'libre_cli'), ('.\\libre_cli\\Aga.Controls.dll', 'libre_cli'), ('.\\libre_cli\\HidSharp.dll', 'libre_cli')],
     datas=[],
     hiddenimports=[],
     hookspath=[],

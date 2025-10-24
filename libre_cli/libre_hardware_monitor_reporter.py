@@ -75,7 +75,7 @@ class LibreHardwareMonitorReporter:
             else:
                 # To handle it when the module is being called from a different directory
                 current_dir = os.path.dirname(os.path.abspath(__file__))
-                return os.path.join(current_dir, 'LibreHardwareMonitorLib')
+                return os.path.join(current_dir, 'LibreHardwareMonitorLib.dll')
 
         # Path to LibreHardwareMonitorLib.dll, remove .dll from the end
         # To handle it when the module is being called from a different directory

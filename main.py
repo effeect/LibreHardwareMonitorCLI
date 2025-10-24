@@ -67,8 +67,9 @@ if __name__ == "__main__":
 
         if args.no_table :
             while True : 
-                sensor_data = LibreHardwareMonitorReport.get_sensor_data()
                 console.print("Starting LibreHardwareMonitor with no table output...")
+                sensor_data = LibreHardwareMonitorReport.get_sensor_data()
+                console.log("Fetched sensor data:")
                 try :
                     for device, sensor, value in sensor_data:
                             print(f"{device} | {sensor} | {float(value):.2f}")
