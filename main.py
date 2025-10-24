@@ -1,8 +1,6 @@
 import libre_cli.libre_hardware_monitor_reporter 
 import argparse
 import time
-import requests
-import os
 
 # For the rich table output integration
 from rich.console import Console
