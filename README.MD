@@ -28,6 +28,10 @@ LibreHardwareMonitorReport = LibreHardwareMonitorReporter()
 sensor_data = LibreHardwareMonitorReport.get_sensor_data()
 ```
 
+# Building your own EXE
+In order to build your own executable, you will need to have PyInstaller and the libremonitorlib dll files and run the following command : 
+`python -m PyInstaller --onefile --name "LibreMonitor" .\main.py --add-binary ".\libre_cli\LibreHardwareMonitorLib.dll;libre_cli" --add-binary ".\libre_cli\Aga.Controls.dll;libre_cli" --add-binary ".\libre_cli\HidSharp.dll;libre_cli"`
+
 Please note the following :
 - When running this, please make sure you run this with Admin permissions as certain things will not be shown, I've often found Intel CPU Temps are not shown when running without admin privs
 

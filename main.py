@@ -66,8 +66,8 @@ if __name__ == "__main__":
             time_refresh = args.time
 
         if args.no_table :
+            console.print("Starting LibreHardwareMonitor with no table output...")
             while True : 
-                console.print("Starting LibreHardwareMonitor with no table output...")
                 sensor_data = LibreHardwareMonitorReport.get_sensor_data()
                 console.log("Fetched sensor data:")
                 try :
