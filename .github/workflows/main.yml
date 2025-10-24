@@ -37,10 +37,10 @@ jobs:
     - name: 🛠️ Build with PyInstaller
       run: |
         python -m PyInstaller --onefile --name "LibreMonitor" `
-          .\libre_cli\libre_hardware_monitor_reporter.py `
-          --add-binary ".\libre_cli\LibreHardwareMonitorLib.dll;." `
-          --add-binary ".\libre_cli\Aga.Controls.dll;." `
-          --add-binary ".\libre_cli\HidSharp.dll;."
+          .\main.py `
+          --add-binary ".\libre_cli\LibreHardwareMonitorLib.dll;libre_cli" `
+          --add-binary ".\libre_cli\Aga.Controls.dll;libre_cli" `
+          --add-binary ".\libre_cli\HidSharp.dll;libre_cli"
     - name: 🏷️ Set version tag
       run: |
         echo "VERSION=$(git rev-parse --short HEAD)" >> $env:GITHUB_ENV
