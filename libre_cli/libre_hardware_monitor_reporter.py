@@ -101,6 +101,34 @@ class LibreHardwareMonitorReporter:
         self.handle.Open()
         return self.handle
     
+    def set_hardware_filter(self, cpu=True, gpu=True, memory=True, motherboard=True, controller=True, network=True, storage=True):
+        """
+        Updates the hardware filter settings realtime, meant for rich table output with key listener.
+            Args:
+            cpu (bool): Enable CPU statistics.
+            gpu (bool): Enable GPU statistics.
+            memory (bool): Enable memory statistics.
+            motherboard (bool): Enable motherboard statistics.
+            controller (bool): Enable controller statistics.
+            network (bool): Enable network statistics.
+            storage (bool): Enable storage statistics.
+        """
+        self.cpu_enabled = cpu
+        self.gpu_enabled = gpu
+        self.memory_enabled = memory
+        self.motherboard_enabled = motherboard
+        self.controller_enabled = controller
+        self.network_enabled = network
+        self.storage_enabled = storage
+
+        self.handle.IsCpuEnabled = self.cpu_enabled
+        self.handle.IsGpuEnabled = self.gpu_enabled
+        self.handle.IsMemoryEnabled = self.memory_enabled
+        self.handle.IsMotherboardEnabled = self.motherboard_enabled
+        self.handle.IsControllerEnabled = self.controller_enabled
+        self.handle.IsNetworkEnabled = self.network_enabled
+        self.handle.IsStorageEnabled = self.storage_enabled
+
     def fetch_stats(self,handle,results):
         """
         Fetches hardware statistics from the LibreHardwareMonitor handler.
@@ -131,9 +159,12 @@ class LibreHardwareMonitorReporter:
             results (list): The list to store parsed sensor data.
         """
         if sensor.Value is not None:
-            value = (f"{sensor.Hardware.Name}",
-                    f"{sensor.Name}",
-                    f"{sensor.Value}")
+            value = (
+                f"{sensor.Hardware.HardwareType}",
+                f"{sensor.Hardware.Name}",
+                f"{sensor.Name}",
+                f"{sensor.Value}"
+            )
             results.append(value)
 
             
