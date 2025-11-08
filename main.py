@@ -6,6 +6,9 @@ import time
 # For Windows key press detection
 import msvcrt
 
+# For Influx Integration
+from influxdb.influx import influx_manager
+
 # For the rich table output integration
 from rich.console import Console
 from rich.table import Table
@@ -117,7 +120,7 @@ if __name__ == "__main__":
         # Setting up Rich Console and Argparse for future use
         console = Console()
         parser = argparse.ArgumentParser(description='Check to see if any flags are present')
-        
+        use_influx = False
         # InfluxDB stuff
         parser.add_argument('--influx-url', type=str, help='InfluxDBv2 server URL')
         parser.add_argument('--token', type=str, help='InfluxDBv2 authentication token')
@@ -149,7 +152,12 @@ if __name__ == "__main__":
             "Storage": args.Storage if args.Storage else False,
             "quit": False,
         }
-
+        # If InfluxDB arguments are present :
+        influx_man = False
+        if (args.influx_url and args.token and args.org and args.bucket):
+            use_influx = True
+            influx_man = influx_manager(args.influx_url, args.token, args.org, args.bucket)
+        
         # TLDR; if there is any hardware filter, then set those values in the LibreHardwareMonitorReporter init
         # If no hardware filter args are present, then just init all of them (which is recommended)
         if(args.CPU or args.GPU or args.Memory or args.Motherboard or args.Controller or args.Network or args.Storage):
@@ -186,7 +194,10 @@ if __name__ == "__main__":
                 console.log("Fetched sensor data:")
                 try :
                     for filter_type, device, sensor, value in sensor_data:
-                            print(f" {filter_type} | {device} | {sensor} | {float(value):.2f}")
+                        print(f" {filter_type} | {device} | {sensor} | {float(value):.2f}")
+                        if influx_man:
+                            influx_man.write_data([filter_type,device,sensor,float(value)])
+
                 except KeyboardInterrupt :
                     print("Exiting on user request...")
                 time.sleep(time_refresh)
@@ -195,6 +206,9 @@ if __name__ == "__main__":
             with Live(make_table([],filters), refresh_per_second=1, console=console, screen=True) as live:
                 while not filters["quit"]:
                     sensor_data = LibreHardwareMonitorReport.get_sensor_data()
+                    if influx_man:
+                        for filter_type, device, sensor, value in sensor_data:
+                            influx_man.write_data([filter_type,device,sensor,float(value)])
                     live.update(make_table(sensor_data, filters))
                     refresh_event.wait(timeout=time_refresh)
                     refresh_event.clear()
