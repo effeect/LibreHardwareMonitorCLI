@@ -1,31 +1,46 @@
 import sys
 import threading
-import libre_cli.libre_hardware_monitor_reporter 
+import libre_cli.libre_hardware_monitor_reporter
 import argparse
+import math
 import time
 # For Windows key press detection
 import msvcrt
+from typing import Optional
 
 # For Influx Integration
-from influxdb.influx import influx_manager
+from influxdb.influx import InfluxManager
 
 # For the rich table output integration
 from rich.console import Console
-from rich.table import Table
 from rich.live import Live
-from rich.layout import Layout
-from rich.panel import Panel
-from rich.text import Text
 
-def get_keypress():
-    """Cross-platform non-blocking key capture"""
+from display.table import make_table
+
+
+_EXTENDED_KEY_MAP = {
+    '\x4b': 'LEFT',
+    '\x4d': 'RIGHT',
+    '\x48': 'UP',
+    '\x50': 'DOWN',
+}
+
+def get_keypress() -> Optional[str]:
+    """Non-blocking key capture. Arrow keys are returned as 'LEFT'/'RIGHT'/'UP'/'DOWN'."""
     if sys.platform == "win32":
         if msvcrt.kbhit():
-            return msvcrt.getwch()
+            ch = msvcrt.getwch()
+            if ch in ('\x00', '\xe0'):
+                # Extended key: consume the scan-code byte and map it to a name.
+                ch2 = msvcrt.getwch()
+                return _EXTENDED_KEY_MAP.get(ch2)
+            return ch
     return None
 
-def key_listener(filters, reporter=None, refresh_event=None):
-    """Thread that listens for key presses and toggles filters."""
+
+def key_listener(filters: dict, reporter=None, refresh_event: Optional[threading.Event] = None,
+                 state: Optional[dict] = None) -> None:
+    """Thread that listens for key presses and toggles filters or changes page."""
     console = Console()
     key_map = {
         "c": "CPU",
@@ -43,124 +58,90 @@ def key_listener(filters, reporter=None, refresh_event=None):
                 console.print("[red]Quitting...[/red]")
                 filters["quit"] = True
                 break
-            if key.lower() in key_map:
+            if key == "LEFT" and state is not None:
+                state["page"] = max(0, state["page"] - 1)
+                if refresh_event:
+                    refresh_event.set()
+            elif key == "RIGHT" and state is not None:
+                state["page"] = state["page"] + 1  # upper clamp applied in main loop
+                if refresh_event:
+                    refresh_event.set()
+            elif key.lower() in key_map:
                 target = key_map[key.lower()]
                 filters[target] = not filters[target]
                 status = "ON" if filters[target] else "OFF"
                 console.print(f"[cyan]{target}[/cyan] toggled [bold]{status}[/bold]")
                 if reporter:
-                    reporter.set_hardware_filter(
-                        cpu=filters["CPU"],
-                        gpu=filters["GPU"],
-                        memory=filters["Memory"],
-                        motherboard=filters["Motherboard"],
-                        controller=filters["Controller"],
-                        network=filters["Network"],
-                        storage=filters["Storage"],
-                    )
-                # Trigger a refresh on the sensor data when a key is pressed
+                    any_active = any(filters[k] for k in key_map.values())
+                    if any_active:
+                        reporter.set_hardware_filter(
+                            cpu=filters["CPU"],
+                            gpu=filters["GPU"],
+                            memory=filters["Memory"],
+                            motherboard=filters["Motherboard"],
+                            controller=filters["Controller"],
+                            network=filters["Network"],
+                            storage=filters["Storage"],
+                        )
+                    else:
+                        # No filters active means no restriction — show all hardware
+                        reporter.set_hardware_filter(
+                            cpu=True, gpu=True, memory=True, motherboard=True,
+                            controller=True, network=True, storage=True,
+                        )
                 if refresh_event:
                     refresh_event.set()
 
         time.sleep(0.1)
 
-def make_table(sensor_data, filters=None):
-    """Builds a rich table with filter status displayed above."""
-    # If none is specified, just turn on all filters
-    if filters is None:
-        filters = {
-            "CPU": True,
-            "GPU": True,
-            "Memory": True,
-            "Motherboard": True,
-            "Controller": True,
-            "Network": True,
-            "Storage": True,
-            "quit": False,
-        }  
-
-    layout = Layout()
-    active_filters = [key for key, val in filters.items() if val and key != "quit"]
-    inactive_filters = [key for key, val in filters.items() if not val and key != "quit"]
-    filter_key = Text()
-    filter_key.append("Press keys to toggle filters: ", style="bold yellow")
-    filter_key.append(" [c] CPU  [g] GPU  [m] Memory  [b] Motherboard  [n] Network  [s] Storage  [q] Quit", style="bold white")
-    filter_text = Text()
-    filter_text.append("Active Filters: ", style="bold yellow")
-    
-    if active_filters:
-        filter_text.append(", ".join(active_filters), style="bold green")
-    else:
-        filter_text.append("None", style="bold red")
-
-    if inactive_filters:
-        filter_text.append(f"   (Inactive: {', '.join(inactive_filters)})", style="dim")
-
-    layout.split_column(
-        Layout(Panel(filter_key), size=3),
-        Layout(Panel(filter_text, title="Filter Status", border_style="blue"), size=3),
-        Layout(name="table",ratio=1)
-    )
-
-    table = Table(title="LibreHardwareMonitor Sensor Data")
-    table.add_column("Type", style="yellow", no_wrap=True)
-    table.add_column("Device", style="cyan", no_wrap=True)
-    table.add_column("Sensor", style="magenta")
-    table.add_column("Value", justify="right", style="green")
-
-    for filter_type, device, sensor, value in sensor_data:
-        table.add_row(filter_type, device, sensor, f"{value}")
-
-    layout["table"].update(table)
-
-    return layout
 
 if __name__ == "__main__":
-    try :
-        # Setting up Rich Console and Argparse for future use
+    try:
         console = Console()
         parser = argparse.ArgumentParser(description='Check to see if any flags are present')
         use_influx = False
-        # InfluxDB stuff
+        # InfluxDB args
         parser.add_argument('--influx-url', type=str, help='InfluxDBv2 server URL')
         parser.add_argument('--token', type=str, help='InfluxDBv2 authentication token')
         parser.add_argument('--org', type=str, help='InfluxDBv2 organization')
         parser.add_argument('--bucket', type=str, help='InfluxDBv2 bucket')
 
-        # Arguements to filter by hardware type, all enabled by default
-        parser.add_argument('--CPU', action='store_true', help='If --CPU-only is present, will only report CPU sensors')
-        parser.add_argument('--GPU', action='store_true', help='If --GPU-only is present, will only report GPU sensors')
-        parser.add_argument('--Memory', action='store_true', help='If --Memory-only is present, will only report Memory sensors')
-        parser.add_argument('--Motherboard', action='store_true', help='If --Motherboard-only is present, will only report Motherboard sensors')
-        parser.add_argument('--Controller', action='store_true', help='If --Controller-only is present, will only report Controller sensors')
-        parser.add_argument('--Network', action='store_true', help='If --Network-only is present, will only report Network sensors')
-        parser.add_argument('--Storage', action='store_true', help='If --Storage-only is present, will only report Storage sensors')
+        # Hardware filter args — all enabled by default when none are specified
+        parser.add_argument('--CPU', action='store_true', help='If --CPU is present, will only report CPU sensors')
+        parser.add_argument('--GPU', action='store_true', help='If --GPU is present, will only report GPU sensors')
+        parser.add_argument('--Memory', action='store_true', help='If --Memory is present, will only report Memory sensors')
+        parser.add_argument('--Motherboard', action='store_true', help='If --Motherboard is present, will only report Motherboard sensors')
+        parser.add_argument('--Controller', action='store_true', help='If --Controller is present, will only report Controller sensors')
+        parser.add_argument('--Network', action='store_true', help='If --Network is present, will only report Network sensors')
+        parser.add_argument('--Storage', action='store_true', help='If --Storage is present, will only report Storage sensors')
         parser.add_argument("--no-table", action="store_true", help="If --no-table is present, will print in raw python format")
         parser.add_argument("--time", type=int, help="Time in seconds for how long something should take to refresh")
 
-        # Parse the arguments  
         args = parser.parse_args()
 
-        # Setting up initial filter dictionary for key listener thread
         filters = {
-            "CPU": args.CPU if args.CPU else False,
-            "GPU": args.GPU if args.GPU else False,
-            "Memory": args.Memory if args.Memory else False,
-            "Motherboard": args.Motherboard if args.Motherboard else False,
-            "Controller": args.Controller if args.Controller else False,
-            "Network": args.Network if args.Network else False,
-            "Storage": args.Storage if args.Storage else False,
+            "CPU": args.CPU,
+            "GPU": args.GPU,
+            "Memory": args.Memory,
+            "Motherboard": args.Motherboard,
+            "Controller": args.Controller,
+            "Network": args.Network,
+            "Storage": args.Storage,
             "quit": False,
         }
-        # If InfluxDB arguments are present :
-        influx_man = False
-        if (args.influx_url and args.token and args.org and args.bucket):
+
+        # Warn if only some InfluxDB flags are provided
+        influx_args = {"--influx-url": args.influx_url, "--token": args.token, "--org": args.org, "--bucket": args.bucket}
+        provided = [k for k, v in influx_args.items() if v]
+        missing = [k for k, v in influx_args.items() if not v]
+        influx_man: Optional[InfluxManager] = None
+        if len(provided) == 4:
             use_influx = True
-            influx_man = influx_manager(args.influx_url, args.token, args.org, args.bucket)
-        
-        # TLDR; if there is any hardware filter, then set those values in the LibreHardwareMonitorReporter init
-        # If no hardware filter args are present, then just init all of them (which is recommended)
-        if(args.CPU or args.GPU or args.Memory or args.Motherboard or args.Controller or args.Network or args.Storage):
+            influx_man = InfluxManager(args.influx_url, args.token, args.org, args.bucket)
+        elif provided:
+            console.print(f"[yellow]Warning: InfluxDB requires all four flags. Provided: {provided}. Missing: {missing}. InfluxDB disabled.[/yellow]")
+
+        if args.CPU or args.GPU or args.Memory or args.Motherboard or args.Controller or args.Network or args.Storage:
             LibreHardwareMonitorReport = libre_cli.libre_hardware_monitor_reporter.LibreHardwareMonitorReporter(
                 cpu=args.CPU,
                 gpu=args.GPU,
@@ -172,45 +153,53 @@ if __name__ == "__main__":
             )
         else:
             LibreHardwareMonitorReport = libre_cli.libre_hardware_monitor_reporter.LibreHardwareMonitorReporter()
-        
+
+        state = {"page": 0}
         refresh_event = threading.Event()
-        # Launch key listener thread
         threading.Thread(
             target=key_listener,
-            args=(filters, LibreHardwareMonitorReport, refresh_event),
+            args=(filters, LibreHardwareMonitorReport, refresh_event, state),
             daemon=True
         ).start()
-        # Time refresh setup, if no arg given, default to 5 seconds, otherwise set to argument value
-        
-        time_refresh = 5
-        if args.time :
-            time_refresh = args.time
 
-        # If no-table is present, print raw output to console
-        if args.no_table :
+        time_refresh = args.time if args.time and args.time > 0 else 5
+
+        if args.no_table:
             console.print("Starting LibreHardwareMonitor with no table output...")
-            while True : 
+            while True:
                 sensor_data = LibreHardwareMonitorReport.get_sensor_data()
                 console.log("Fetched sensor data:")
-                try :
+                try:
                     for filter_type, device, sensor, value in sensor_data:
                         print(f" {filter_type} | {device} | {sensor} | {float(value):.2f}")
                         if influx_man:
-                            influx_man.write_data([filter_type,device,sensor,float(value)])
-
-                except KeyboardInterrupt :
+                            influx_man.write_data([filter_type, device, sensor, float(value)])
+                except KeyboardInterrupt:
                     print("Exiting on user request...")
                 time.sleep(time_refresh)
-        # Else, use rich to make a nice table output
-        else :
-            with Live(make_table([],filters), refresh_per_second=1, console=console, screen=True) as live:
+        else:
+            sensor_data: list = []
+            next_refresh = time.monotonic() + time_refresh
+
+            with Live(make_table([], filters, countdown=time_refresh), refresh_per_second=2, console=console, screen=True) as live:
                 while not filters["quit"]:
-                    sensor_data = LibreHardwareMonitorReport.get_sensor_data()
-                    if influx_man:
-                        for filter_type, device, sensor, value in sensor_data:
-                            influx_man.write_data([filter_type,device,sensor,float(value)])
-                    live.update(make_table(sensor_data, filters))
-                    refresh_event.wait(timeout=time_refresh)
+                    rows_per_page = max(5, console.size.height - 20)
+                    total_pages = max(1, math.ceil(len(sensor_data) / rows_per_page))
+                    state["page"] = min(state["page"], total_pages - 1)
+
+                    remaining = max(0, int(next_refresh - time.monotonic()))
+                    live.update(make_table(sensor_data, filters, countdown=remaining,
+                                           page=state["page"], rows_per_page=rows_per_page))
+
+                    triggered = refresh_event.wait(timeout=1.0)
                     refresh_event.clear()
+
+                    if triggered or time.monotonic() >= next_refresh:
+                        sensor_data = LibreHardwareMonitorReport.get_sensor_data()
+                        if influx_man:
+                            for filter_type, device, sensor, value in sensor_data:
+                                influx_man.write_data([filter_type, device, sensor, float(value)])
+                        next_refresh = time.monotonic() + time_refresh
+
     except KeyboardInterrupt:
         print("Exiting on user request...")

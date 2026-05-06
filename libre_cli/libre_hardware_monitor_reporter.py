@@ -2,10 +2,11 @@
     Class Module for LibreHardwareMonitorReport
 """
 
-import clr # Pythonnet to interface with .dlls
-import os 
+import clr  # Pythonnet to interface with .dlls
+import os
 import sys
 import glob
+
 
 class LibreHardwareMonitorReporter:
     """
@@ -23,7 +24,9 @@ class LibreHardwareMonitorReporter:
         sensor_data (list): Stores the parsed sensor data.
         handler: The LibreHardwareMonitor handler object.
     """
-    def __init__(self, cpu=True, gpu=True, memory=True, motherboard=True, controller=True, network=True, storage=True):
+    def __init__(self, cpu: bool = True, gpu: bool = True, memory: bool = True,
+                 motherboard: bool = True, controller: bool = True,
+                 network: bool = True, storage: bool = True) -> None:
         """
         Initializes the LibreHardwareMonitorReporter class.
 
@@ -37,12 +40,9 @@ class LibreHardwareMonitorReporter:
             storage (bool): Enable storage statistics. Default is True.
         """
         self.NoneType = type(None)
-        # Intializing Arrays to store the info
-        self.results = []
-        self.sensor_data = []
+        self.results: list = []
+        self.sensor_data: list = []
 
-        # self variables to set what hardware to include/exclude. All enabled by default.
-        # Might be useful if you are only interested in a specific bit of hardware
         self.cpu_enabled = cpu
         self.gpu_enabled = gpu
         self.memory_enabled = memory
@@ -51,7 +51,7 @@ class LibreHardwareMonitorReporter:
         self.network_enabled = network
         self.storage_enabled = storage
         self.handler = self.initialize_handler()
-    
+
     def initialize_handler(self):
         """
         Initializes the LibreHardwareMonitor handler.
@@ -62,32 +62,30 @@ class LibreHardwareMonitorReporter:
         Returns:
             Hardware.Computer: The initialized LibreHardwareMonitor handler.
         """
-        # In order to make this program easily buildable, we will use winget to setup LibreHardwareMonitor
-        # The DLL will be located in the WinGet packages folder so we will grab it
-        def find_librehardwaremonitor_dll():
+        def find_librehardwaremonitor_dll() -> str:
             base_path = os.path.join(os.environ['LOCALAPPDATA'], 'Microsoft', 'WinGet', 'Packages')
             pattern = os.path.join(base_path, 'LibreHardwareMonitor.LibreHardwareMonitor_*', 'LibreHardwareMonitorLib.dll')
             matches = glob.glob(pattern)
-            # If theres a version in Windows, we will use that, if not we will use our own, GITHUB actions needed
             if matches:
                 print("DLL found at: " + matches[0])
-                return matches[0]  # Return the first match
+                return matches[0]
             else:
-                # To handle it when the module is being called from a different directory
                 current_dir = os.path.dirname(os.path.abspath(__file__))
                 return os.path.join(current_dir, 'LibreHardwareMonitorLib.dll')
 
-        # Path to LibreHardwareMonitorLib.dll, remove .dll from the end
-        # To handle it when the module is being called from a different directory
         dll_path = find_librehardwaremonitor_dll()
         sys.path.append(os.path.dirname(dll_path))
-        clr.AddReference(dll_path)
-        self.results = []
-        self.csv = []
-        # Importing it like this due to the DLL nature
-        from LibreHardwareMonitor import Hardware
 
-        # Setting up the handle, all enabled by default
+        try:
+            clr.AddReference(dll_path)
+            from LibreHardwareMonitor import Hardware
+        except Exception as e:
+            print(f"Error: Failed to load LibreHardwareMonitor DLL from '{dll_path}': {e}")
+            print("Ensure LibreHardwareMonitorLib.dll is installed via WinGet or bundled alongside this executable.")
+            sys.exit(1)
+
+        self.results = []
+
         self.handle = Hardware.Computer()
         self.handle.IsCpuEnabled = self.cpu_enabled
         self.handle.IsGpuEnabled = self.gpu_enabled
@@ -96,15 +94,20 @@ class LibreHardwareMonitorReporter:
         self.handle.IsControllerEnabled = self.controller_enabled
         self.handle.IsNetworkEnabled = self.network_enabled
         self.handle.IsStorageEnabled = self.storage_enabled
+        # LibreHardwareMonitor requires an Open/Close/Open cycle to correctly
+        # initialize hardware detection on Windows before first sensor read.
         self.handle.Open()
         self.handle.Close()
         self.handle.Open()
         return self.handle
-    
-    def set_hardware_filter(self, cpu=True, gpu=True, memory=True, motherboard=True, controller=True, network=True, storage=True):
+
+    def set_hardware_filter(self, cpu: bool = True, gpu: bool = True, memory: bool = True,
+                            motherboard: bool = True, controller: bool = True,
+                            network: bool = True, storage: bool = True) -> None:
         """
         Updates the hardware filter settings realtime, meant for rich table output with key listener.
-            Args:
+
+        Args:
             cpu (bool): Enable CPU statistics.
             gpu (bool): Enable GPU statistics.
             memory (bool): Enable memory statistics.
@@ -129,7 +132,7 @@ class LibreHardwareMonitorReporter:
         self.handle.IsNetworkEnabled = self.network_enabled
         self.handle.IsStorageEnabled = self.storage_enabled
 
-    def fetch_stats(self,handle,results):
+    def fetch_stats(self, handle, results: list) -> list:
         """
         Fetches hardware statistics from the LibreHardwareMonitor handler.
 
@@ -143,14 +146,14 @@ class LibreHardwareMonitorReporter:
         for i in handle.Hardware:
             i.Update()
             for sensor in i.Sensors:
-                self.parse_sensor(sensor,results)
+                self.parse_sensor(sensor, results)
             for j in i.SubHardware:
                 j.Update()
                 for subsensor in j.Sensors:
-                    self.parse_sensor(subsensor,results)
+                    self.parse_sensor(subsensor, results)
         return results
 
-    def parse_sensor(self,sensor,results):
+    def parse_sensor(self, sensor, results: list) -> None:
         """
         Parses a sensor and appends its data to the results list.
 
@@ -167,32 +170,31 @@ class LibreHardwareMonitorReporter:
             )
             results.append(value)
 
-            
-    def get_sensor_data(self):
+    def get_sensor_data(self) -> list:
         """
         Fetches and returns the latest sensor data.
 
         Returns:
             list: A list of tuples containing sensor data.
         """
-        self.results = [] # Clear previous results
-        self.sensor_data = self.fetch_stats(self.handler,self.results)
+        self.results = []
+        self.sensor_data = self.fetch_stats(self.handler, self.results)
         return self.sensor_data
-    
+
+
 # Below is an example of how you could use this in a script
 # This is not necessary if you are using this as a module
 if __name__ == "__main__":
     import time
-    try :
+    try:
         print("Starting LibreHardwareMonitor...")
         LibreHardwareMonitorReport = LibreHardwareMonitorReporter()
-        while True :
+        while True:
             LibreHardwareMonitorReport.get_sensor_data()
             for i in LibreHardwareMonitorReport.results:
                 print(i)
             time.sleep(10)
     except KeyboardInterrupt:
-        # When being shut down, close the handle
         LibreHardwareMonitorReport.handler.Close()
         print("LibreHardwareMonitor closed.")
         print("Exiting...")
