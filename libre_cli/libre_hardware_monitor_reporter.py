@@ -63,15 +63,15 @@ class LibreHardwareMonitorReporter:
             Hardware.Computer: The initialized LibreHardwareMonitor handler.
         """
         def find_librehardwaremonitor_dll() -> str:
-            base_path = os.path.join(os.environ['LOCALAPPDATA'], 'Microsoft', 'WinGet', 'Packages')
+            base_path = os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Microsoft', 'WinGet', 'Packages')
             pattern = os.path.join(base_path, 'LibreHardwareMonitor.LibreHardwareMonitor_*', 'LibreHardwareMonitorLib.dll')
             matches = glob.glob(pattern)
             if matches:
-                print("DLL found at: " + matches[0])
                 return matches[0]
-            else:
-                current_dir = os.path.dirname(os.path.abspath(__file__))
-                return os.path.join(current_dir, 'LibreHardwareMonitorLib.dll')
+            if hasattr(sys, '_MEIPASS'):
+                return os.path.join(sys._MEIPASS, 'libre_cli', 'LibreHardwareMonitorLib.dll')
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            return os.path.join(current_dir, 'LibreHardwareMonitorLib.dll')
 
         dll_path = find_librehardwaremonitor_dll()
         sys.path.append(os.path.dirname(dll_path))

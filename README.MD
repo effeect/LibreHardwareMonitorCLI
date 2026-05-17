@@ -9,7 +9,9 @@ This is a Python CLI project that wraps around the LibreHardwareMonitor.dll file
 
 # Setup
 
-You can download the latest release from the releases page: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases
+You can download the latest release (`LibreMonitor.exe`) from the [Releases page](../../releases/latest).
+
+> **Run as Administrator** for full sensor visibility — some sensors (e.g. Intel CPU temperatures) are only accessible with elevated privileges.
 
 ## Arguements :
 By design, you will not need to enter in any arguements in order to use the cli. However if you want to make some specific customisations before runtime or add influx support. Please read on :
@@ -45,12 +47,24 @@ sensor_data = LibreHardwareMonitorReport.get_sensor_data()
 ```
 
 # Building your own executable (not required)
-If you want to build your own executable from scratch. You will need to have PyInstaller and the libremonitorlib dll files and run the following command : 
-`python -m PyInstaller --onefile --name "LibreMonitor" .\main.py --add-binary ".\libre_cli\LibreHardwareMonitorLib.dll;libre_cli" --add-binary ".\libre_cli\Aga.Controls.dll;libre_cli" --add-binary ".\libre_cli\HidSharp.dll;libre_cli"`
 
-Please note the following :
-- When running this, please make sure you run this with Admin permissions as certain things will not be shown, I've often found Intel CPU Temps are not shown when running without admin privs
-- Add better examples of putting the data into an Influx Database
+Pre-built binaries are published automatically on each versioned release via GitHub Actions. If you want to build locally:
+
+1. Install dependencies:
+
+   ```sh
+   pip install -r requirements.txt
+   ```
+
+2. Download the latest LibreHardwareMonitor release and extract its DLLs into `libre_cli/`.
+
+3. Run PyInstaller using the included spec file:
+
+   ```sh
+   python -m PyInstaller LibreMonitor.spec
+   ```
+
+The spec file automatically picks up all `.dll` files present in `libre_cli/`, so no manual `--add-binary` flags are needed. The output will be at `dist/LibreMonitor.exe`.
 
 Many thanks to the LibreHardwareMonitor team : https://github.com/LibreHardwareMonitor/LibreHardwareMonitor
 

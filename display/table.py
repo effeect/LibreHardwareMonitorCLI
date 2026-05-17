@@ -55,7 +55,8 @@ def make_table(sensor_data: list, filters: Optional[dict] = None,
         filter_text.append("All", style="bold green")
 
     table = Table(
-        title=f"LibreHardwareMonitor Sensor Data — Page {page + 1}/{total_pages}  ({len(sensor_data)} rows total)"
+        title=f"LibreHardwareMonitor Sensor Data — Page {page + 1}/{total_pages}  ({len(sensor_data)} rows total)",
+        expand=True,
     )
     table.add_column("Type", style="yellow", no_wrap=True)
     table.add_column("Device", style="cyan", no_wrap=True)

@@ -1,12 +1,20 @@
 # -*- mode: python ; coding: utf-8 -*-
+import glob
+import os
 
+dll_sources = glob.glob(os.path.join('libre_cli', '*.dll'))
+binaries = [(dll, 'libre_cli') for dll in dll_sources]
 
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[('.\\libre_cli\\LibreHardwareMonitorLib.dll', 'libre_cli'), ('.\\libre_cli\\Aga.Controls.dll', 'libre_cli'), ('.\\libre_cli\\HidSharp.dll', 'libre_cli')],
+    binaries=binaries,
     datas=[],
-    hiddenimports=[],
+    hiddenimports=[
+        'clr',
+        'clr._extra',
+        'pythonnet',
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -26,7 +34,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     runtime_tmpdir=None,
     console=True,
