@@ -4,3 +4,11 @@ dist/
 **/Aga.Controls.dll
 **/LibreHardwareMonitorLib.dll
 **/HidSharp.dll
+**/BlackSharp.Core.dll
+**/DiskInfoToolkit.dll
+**/RAMSPDToolkit-NDD.dll
+**/System.Buffers.dll
+**/System.Memory.dll
+**/System.Numerics.Vectors.dll
+**/System.Runtime.CompilerServices.Unsafe.dll
+

@@ -1,3 +1,5 @@
 pythonnet
 rich
 influxdb-client
+pytest
+pyinstaller
