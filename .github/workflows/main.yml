@@ -32,7 +32,7 @@ jobs:
         id: get_release
         run: |
           $response = Invoke-RestMethod -Uri "https://api.github.com/repos/LibreHardwareMonitor/LibreHardwareMonitor/releases/latest"
-          $asset = $response.assets | Where-Object { $_.name -like "*LibreHardwareMonitor*.zip" }
+          $asset = $response.assets | Where-Object { $_.name -eq "LibreHardwareMonitor.zip" }
           "zip_url=$($asset.browser_download_url)" | Out-File -FilePath $env:GITHUB_ENV -Append
           "lhm_version=$($response.tag_name)" | Out-File -FilePath $env:GITHUB_ENV -Append
 
